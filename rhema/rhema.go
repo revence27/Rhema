@@ -36,6 +36,23 @@ func failWell(rw http.ResponseWriter, req *http.Request) {
   fmt.Fprintf(rw, "%v\n", got)
 }
 
+func squealError(e error, stat, msg string, rw http.ResponseWriter, req *http.Request, nxt func()) {
+  if e != nil {
+    log.Printf("[%s] %v", req.URL.String(), e)
+    rw.Header().Set("Status", fmt.Sprintf("400 %s", stat))
+    e = page.Execute(rw, struct {
+      ForError      bool
+      ErrorMessage  []byte
+    }{
+      ForError:     true,
+      ErrorMessage: []byte(msg),
+    })
+    if e != nil { panic(e)  }
+    return
+  }
+  nxt()
+}
+
 func rhemaHandler(rw http.ResponseWriter, req *http.Request) {
   defer failWell(rw, req)
 
@@ -48,75 +65,39 @@ func rhemaHandler(rw http.ResponseWriter, req *http.Request) {
   if req.FormValue("b") == "" {
     bname = []byte("Genesis")
   }
-  e  :=  books.Find(bson.M{
+  squealError(books.Find(bson.M{
     "name": bname,
-  }).Limit(1).One(book)
-  if e != nil {
-    log.Printf("[%s] %v", req.URL.String(), e)
-    rw.Header().Set("Status", "400 No book by that name.")
-    e = page.Execute(rw, struct {
-      ForError      bool
-      ErrorMessage  []byte
-    }{
-      ForError:     true,
-      ErrorMessage: []byte(fmt.Sprintf("No book by the name \"%s\"", bname)),
+  }).Limit(1).One(book), "No book by that name.", fmt.Sprintf("No book by the name \"%s\"", bname), rw, req, func() {
+    chapter :=  make(map[string]interface{})
+    cposs   :=  req.FormValue("c")
+    cpos, e :=  strconv.Atoi(cposs)
+    if e != nil {
+      log.Printf("[%s] %v", req.URL.String(), e)
+      cpos  = 1
+    }
+    squealError(chapters.Find(bson.M{
+      "position": cpos,
+      "book"    : book["_id"],
+    }).Limit(1).One(chapter), fmt.Sprintf("That book has no chapter number %d.", cpos), fmt.Sprintf("\"%s\" has no chapter \"%s\"", bname, cposs), rw, req, func() {
+      them    :=  make([]VerseMap, 0)
+      squealError(verses.Find(bson.M{
+        "chapter" : chapter["_id"],
+      }).Sort("position").All(&them), fmt.Sprintf("Could not fetch verses for chapter %d.", cpos), fmt.Sprintf("Failure to fetch verses for \"%s\" chapter %d", bname, cpos), rw, req, func() {
+        e = page.Execute(rw, struct {
+          ForError            bool
+          Book                []byte
+          Chapter             int
+          Verses              []VerseMap
+        }{
+          ForError:           false,
+          Book:               book["name"].([]byte),
+          Chapter:            chapter["position"].(int),
+          Verses:             them,
+        })
+        if e != nil { panic(e)  }
+      })
     })
-    if e != nil { panic(e)  }
-    return
-  }
-  chapter :=  make(map[string]interface{})
-  cposs   :=  req.FormValue("c")
-  cpos, e :=  strconv.Atoi(cposs)
-  if e != nil {
-    log.Printf("[%s] %v", req.URL.String(), e)
-    cpos  = 1
-  }
-  e = chapters.Find(bson.M{
-    "position": cpos,
-    "book"    : book["_id"],
-  }).Limit(1).One(chapter)
-  if e != nil {
-    log.Printf("[%s] %v", req.URL.String(), e)
-    rw.Header().Set("Status", fmt.Sprintf("400 That book has no chapter number %d.", cpos))
-    e = page.Execute(rw, struct {
-      ForError      bool
-      ErrorMessage  []byte
-    }{
-      ForError:     true,
-      ErrorMessage: []byte(fmt.Sprintf("\"%s\" has no chapter \"%s\"", bname, cposs)),
-    })
-    if e != nil { panic(e)  }
-    return
-  }
-  them    :=  make([]VerseMap, 0)
-  e = verses.Find(bson.M{
-    "chapter" : chapter["_id"],
-  }).Sort("position").All(&them)
-  if e != nil {
-    log.Printf("[%s] %v", req.URL.String(), e)
-    rw.Header().Set("Status", fmt.Sprintf("400 Could not fetch verses for chapter %d.", cpos))
-    e = page.Execute(rw, struct {
-      ForError      bool
-      ErrorMessage  []byte
-    }{
-      ForError:     true,
-      ErrorMessage: []byte(fmt.Sprintf("Failure to fetch verses for \"%s\" chapter %d", bname, cpos)),
-    })
-    if e != nil { panic(e)  }
-    return
-  }
-  e = page.Execute(rw, struct {
-    ForError            bool
-    Book                []byte
-    Chapter             int
-    Verses              []VerseMap
-  }{
-    ForError:           false,
-    Book:               book["name"].([]byte),
-    Chapter:            chapter["position"].(int),
-    Verses:             them,
   })
-  if e != nil { panic(e)  }
 }
 
 func main() {
