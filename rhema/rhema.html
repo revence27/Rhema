@@ -1,0 +1,45 @@
+<html>
+  <head>
+  {{  if  .ForError }}
+    <title>Error: {{  printf "%s" .ErrorMessage }}</title>
+  {{  else  }}
+    <title>{{ printf "%s" .Book }} {{ .Chapter  }}</title>
+  {{  end }}
+    <link href='http://fonts.googleapis.com/css?family=Londrina+Outline|Marck+Script|Londrina+Shadow&subset=latin,latin-ext,cyrillic' rel='stylesheet' type='text/css'>
+    <style type="text/css">
+      body
+      {
+        padding-left: 30%;
+        padding-right: 30%;
+        text-align: justify;
+      }
+
+      h1, h2, h3, h4, h5, h6
+      {
+        font-family: 'Londrina Shadow', cursive;
+      }
+
+      .error
+      {
+        font-family: 'Londrina Outline', "Copperplate Gothic Bold", sans-serif;
+      }
+
+      .verse
+      {
+        display: inline;
+        font-family: "Marck Script", cursive;
+      }
+    </style>
+  </head>
+  <body>
+  {{  if  .ForError }}
+    <h1 class="error">Error</h1>
+    <h2 class="error">{{  printf "%s" .ErrorMessage }}</h2>
+  {{  else  }}
+    <h1>{{  printf "%s" .Book }} {{ .Chapter  }}</h1>
+    {{  range .Verses }}
+    <div class="verse" title="{{  .Position }}">  {{  .Rhema  }}</div>
+    {{  end }}
+  {{  end }}
+  </body>
+</html>
