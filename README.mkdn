@@ -1,0 +1,25 @@
+Rhema
+=====
+
+The Word, with (almost) no verse markings.
+
+Architecture
+------------
+
+Built on Mongo DB (although the “document” representation of the verses was not exploited, as would have been fitting for a document DB; instead a hierarchical lay-out was followed).  
+Written in Go.  
+Uses NIV. British English.  
+Google Web Fonts, if you are online.  
+Read the code.  
+
+Components
+----------
+`transfer.go` Will compile to a binary that transfers data from an XML file of the Zefania XML format (see, for example: http://www.churchsw.org/bibles ) and copies them into MongoDB.
+
+`rhema.go` Will compile into the webserver that answers to queries.
+
+
+TODO
+----
+
+Now put the form onto the template page. The form to request a new chapter.
