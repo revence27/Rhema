@@ -17,9 +17,3 @@ Components
 `transfer.go` Will compile to a binary that transfers data from an XML file of the Zefania XML format (see, for example: http://www.churchsw.org/bibles ) and copies them into MongoDB.
 
 `rhema.go` Will compile into the webserver that answers to queries.
-
-
-TODO
-----
-
-Now put the form onto the template page. The form to request a new chapter.
