@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
   <head>
   {{  if  .ForError }}
@@ -6,6 +7,7 @@
     <title>{{ printf "%s" .Book }} {{ .Chapter  }}</title>
   {{  end }}
     <link href='http://fonts.googleapis.com/css?family=Londrina+Outline|Marck+Script|Londrina+Shadow&subset=latin,latin-ext,cyrillic' rel='stylesheet' type='text/css'>
+    <meta name="Content-Type" content="text/html; encoding=utf-8" />
     <style type="text/css">
       body
       {
@@ -17,6 +19,11 @@
       h1, h2, h3, h4, h5, h6
       {
         font-family: 'Londrina Shadow', cursive;
+      }
+
+      .seeker
+      {
+        margin-bottom: 1em;
       }
 
       .error
@@ -35,10 +42,25 @@
   {{  if  .ForError }}
     <h1 class="error">Error</h1>
     <h2 class="error">{{  printf "%s" .ErrorMessage }}</h2>
+    <a href="/">Try Again.</a>
   {{  else  }}
-    <h1>{{  printf "%s" .Book }} {{ .Chapter  }}</h1>
+    <h1 id="topista">{{  printf "%s" .Book }} {{ .Chapter  }}</h1>
+    <form class="seeker" method="GET">
+      <select name="t">
+      {{  range .Versions }}
+        <option>{{  .Name }}</option>
+      {{  end }}
+      </select>
+      <select name="b">
+      {{  range .Books }}
+        <option>{{  . }}</option>
+      {{  end }}
+      </select>
+      <input type="text" value="{{  .Chapter  }}" name="c" size="3" />
+      <input type="submit" value="Hear" />
+    </form>
     {{  range .Verses }}
-    <div class="verse" title="{{  .Position }}">  {{  .Rhema  }}</div>
+    <div class="verse" title="{{  .Position }}"> {{  .Rhema  }}</div>
     {{  end }}
   {{  end }}
   </body>

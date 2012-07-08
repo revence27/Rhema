@@ -8,7 +8,7 @@ Architecture
 
 Built on Mongo DB (although the “document” representation of the verses was not exploited, as would have been fitting for a document DB; instead a hierarchical lay-out was followed).  
 Written in Go.  
-Uses NIV. British English.  
+Uses XML Bibles in the Zepfania format.
 Google Web Fonts, if you are online.  
 Read the code.  
 

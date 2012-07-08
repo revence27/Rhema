@@ -8,6 +8,7 @@ import (
   "labix.org/v2/mgo"
   "labix.org/v2/mgo/bson"
   "os"
+  "path"
   "strings"
 )
 
@@ -19,28 +20,49 @@ func errorReporter() {
 }
 
 type Verse struct {
-  Rhema     []byte        `xml:",innerxml"`
-  Position  int           `xml:"vnumber,attr"`
+  Rhema     []byte          `xml:",innerxml"`
+  Position  int             `xml:"vnumber,attr"`
 }
 
 type Chapter struct {
-  Verses    []Verse       `xml:"VERS"`
-  Position  int           `xml:"cnumber,attr"`
+  Verses    []Verse         `xml:"VERS"`
+  Position  int             `xml:"cnumber,attr"`
 }
 
 type Book struct {
-  Chapters  []Chapter   `xml:"CHAPTER"`
-  Name      []byte      `xml:"bname,attr"`
-  Position  int         `xml:"bnumber,attr"`
+  Chapters  []Chapter       `xml:"CHAPTER"`
+  Name      []byte          `xml:"bname,attr"`
+  Position  int             `xml:"bnumber,attr"`
 }
 
 type Bible struct {
-  Books []Book          `xml:"BIBLEBOOK"`
+  Books     []Book          `xml:"BIBLEBOOK"`
+  Version   []byte          `xml:"biblename,attr"`
 }
 
-func idempotentRecordBook(book Book, col *mgo.Collection) interface{} {
+func idempotentRecordVersion(bible *Bible, col *mgo.Collection) interface{} {
+  versions  :=  col.Find(bson.M{
+    "name"  : bible.Version,
+  }).Limit(1)
+  cpt, e  :=  versions.Count()
+  if e != nil { panic(e)  }
+  if cpt > 0 {
+    ans := make(map[string]interface{})
+    e    = versions.One(ans)
+    if e != nil { panic(e)  }
+    return ans["_id"]
+  }
+  e = col.Insert(bson.M{
+    "name"  : bible.Version,
+  })
+  if e != nil { panic(e)  }
+  return idempotentRecordVersion(bible, col)
+}
+
+func idempotentRecordBook(vid interface{}, book Book, col *mgo.Collection) interface{} {
   them  :=  col.Find(bson.M{
-    "name": book.Name,
+    "name"    : book.Name,
+    "version" : vid,
   }).Limit(1)
   cpt, e  :=  them.Count()
   if e != nil { panic(e)  }
@@ -53,9 +75,10 @@ func idempotentRecordBook(book Book, col *mgo.Collection) interface{} {
   e = col.Insert(bson.M{
     "name"      : book.Name,
     "position"  : book.Position,
+    "version"   : vid,
   })
   if e != nil { panic(e)  }
-  return idempotentRecordBook(book, col)
+  return idempotentRecordBook(vid, book, col)
 }
 
 func idempotentRecordChapter(bid interface{}, chapter Chapter, col *mgo.Collection) interface{} {
@@ -93,15 +116,17 @@ func idempotentRecordVerse(cid interface{}, verse Verse, col *mgo.Collection) {
 
 func recordBible(bible *Bible, ses *mgo.Session) {
   database    :=  ses.DB("bible")
+  version     :=  database.C("versions")
+  vid         :=  idempotentRecordVersion(bible, version)
   collection  :=  database.C("books")
   for _, book := range bible.Books {
-    bid :=  idempotentRecordBook(book, collection)
+    bid :=  idempotentRecordBook(vid, book, collection)
     ccoll :=  database.C("chapters")
     for _, chapter  := range book.Chapters {
       cid :=  idempotentRecordChapter(bid, chapter, ccoll)
       vcoll :=  database.C("verses")
       for _, verse  :=  range chapter.Verses {
-        fmt.Fprintf(os.Stderr, fmt.Sprintf("Recording %s %d:%d %s%s", book.Name, chapter.Position, verse.Position, verse.Rhema, strings.Repeat(" ", 80))[:75])
+        fmt.Fprintf(os.Stderr, fmt.Sprintf("%s %s %d:%d %s%s", bible.Version, book.Name, chapter.Position, verse.Position, verse.Rhema, strings.Repeat(" ", 80))[:75])
         idempotentRecordVerse(cid, verse, vcoll)
         fmt.Fprintf(os.Stderr, "\r")
       }
@@ -116,6 +141,7 @@ func processXMLPath(it string, ses *mgo.Session) {
   bible :=  new(Bible)
   e = xml.Unmarshal(ans, bible)
   if e != nil { panic(e)  }
+  bible.Version = []byte(strings.SplitN(path.Base(it), ".", 2)[0])
   recordBible(bible, ses)
 }
 
